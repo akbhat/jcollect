@@ -162,7 +162,7 @@ def parse_and_run_cmdfile(node, sh, args, uname, rpwd, logfile, logger):
                         #if comd has " they need to be escaped \
                         for fpc in fpcs:
                             if cmd_type == 'vty':
-                                cmd_list.append("cli -c 'request pfe execute target fpc" + str(fpc) + ' command "' + comd.strip().split("#")[0] + """"'""")
+                                cmd_list.append("cli -c 'request pfe execute command " + comd.strip().split("#")[0] + " target fpc" + str(fpc)""""'""")
                             else:
                                 cmd_list.append("rsh -Ji fpc" + str(fpc) + " " + comd.strip().split("#")[0])
                             continue

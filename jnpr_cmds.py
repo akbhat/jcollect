@@ -263,7 +263,6 @@ qfx5100_cmds_shell_D = ["rtinfo -rnV",
                         #"""cli -c 'show route table inet.0 extensive | no-more'""", #redundant?                        
 
 
-
 qfx10002_cmds_shell_Q = ["ifsmon -c",
                          "vmstat -afimsz",
                          """cprod -A fpc0 -c 'show nhdb all'""",                         

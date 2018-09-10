@@ -1,6 +1,6 @@
-import argparse, sys, traceback, datetime, re, time, ftplib, tarfile, os, logging, textwrap, getpass, fnmatch, paramiko, csv, pdb 
+import argparse, sys, traceback, datetime, re, time, ftplib, tarfile, os, logging, textwrap, getpass, fnmatch, paramiko, csv, pdb
 import atexit, queue, weakref, cProfile
-#from jnpr.jsnapy import SnapAdmin 
+#from jnpr.jsnapy import SnapAdmin
 #import asyncio
 #import uvloop
 from netmiko import ConnectHandler
@@ -8,10 +8,10 @@ from netmiko.ssh_exception import NetMikoTimeoutException, NetMikoAuthentication
 from concurrent.futures import _base, ThreadPoolExecutor, ProcessPoolExecutor, TimeoutError
 from multiprocessing import Lock, Pool
 from pebble import ProcessPool, ProcessExpired
-#from multiprocessing.dummy import Pool 
+#from multiprocessing.dummy import Pool
 from lxml import etree
 from shutil import rmtree, move, copyfileobj
-from threading import Thread, BoundedSemaphore 
+from threading import Thread, BoundedSemaphore
 from threading import Lock as tLock
 from scp import SocketTimeout, SCPException
 from contextlib import contextmanager
@@ -24,7 +24,7 @@ from jnpr.junos.exception import *
 from jnpr_cmds import *
 from jnpr.junos.op.fpc import FpcHwTable
 from jnpr.junos.op.fpc import FpcInfoTable
-from jnpr.junos.op.vc import VcMemTable 
+from jnpr.junos.op.vc import VcMemTable
 
 cmd_set_shell_Q = {"EX4300"     : ex4300_cmds_shell_Q,
                    "QFX5100"    : qfx5100_cmds_shell_Q,
@@ -32,7 +32,7 @@ cmd_set_shell_Q = {"EX4300"     : ex4300_cmds_shell_Q,
 		           "QFX10002"   : qfx10002_cmds_shell_Q,
                    "QFX10008"   : qfx10008_cmds_shell_Q,
                    "QFX10016"   : qfx10008_cmds_shell_Q,
-                   "MX"         : mx_cmds_shell_Q}                   
+                   "MX"         : mx_cmds_shell_Q}
                    #"QFX5100_VXL": qfx5100_vxlan_cmds_shell_Q,
                    #"SRX_BRANCH" : srx_cmds_shell_Q,
                    #"SRX_HIGHEND": srx_cmds_shell_Q}
@@ -43,7 +43,7 @@ cmd_set_shell_D = {"EX4300"     : ex4300_cmds_shell_D,
 		           "QFX10002"   : qfx10002_cmds_shell_D,
                    "QFX10008"   : qfx10008_cmds_shell_D,
                    "QFX10016"   : qfx10008_cmds_shell_D,
-                   "MX"         : mx_cmds_shell_D}                   
+                   "MX"         : mx_cmds_shell_D}
                    #"QFX5100_VXL": qfx5100_vxlan_cmds_shell_D,
                    #"SRX_BRANCH": srx_cmds_shell_D,
                    #"SRX_HIGH"  : srx_cmds_shell_D,
@@ -66,7 +66,7 @@ def exec_rpc_handle_errors(rpc, *exceptions, **args):
                 raise Exception
         elif rpc == "Archive /var/log":
             sh, source, dest = args['sh'], args['source'], args['dest']
-            sh.run("cli -c 'file archive compress source " + source + ' ' + 'destination ' + dest + "'",timeout=600) 
+            sh.run("cli -c 'file archive compress source " + source + ' ' + 'destination ' + dest + "'",timeout=600)
             if not sh.last_ok:
                 logger.error('unable to collect /var/log from Master RE')
     except PermissionError:
@@ -76,7 +76,7 @@ def exec_rpc_handle_errors(rpc, *exceptions, **args):
 
 def func_exception_decorator(logger):
     """
-    A decorator that wraps the passed in function and logs 
+    A decorator that wraps the passed in function and logs
     exceptions should one occur
     @param logger: The logging object
     """
@@ -98,11 +98,11 @@ def func_exception_decorator(logger):
 def parse_and_run_cmdfile(node, sh, args, uname, rpwd, logfile, logger):
     if args.detail:
         logger.info("--detail ignored as --cmdfile specified")
-    
+
     if not os.path.isfile(args.cmdfile.strip()):
         logger.error('Unable to find cmdfile: {}'.format(args.cmdfile))
         sys.exit(1)
-    
+
     with open(args.cmdfile, 'r') as cmdfile:
         try:
             cmd_type = ''
@@ -114,14 +114,14 @@ def parse_and_run_cmdfile(node, sh, args, uname, rpwd, logfile, logger):
                     continue
                 elif md == 'cli':
                     cmd_type = 'cli'
-                    continue 
+                    continue
                 elif md in ('shell','vty'):
                     fpcs=[]
                     if md == 'shell':
                         cmd_type = 'shell'
                     if md == 'vty':
                         cmd_type = 'vty'
-                     
+
                     try:
                         ft = comd.strip().split(':')[1]
                     except IndexError:
@@ -151,7 +151,7 @@ def parse_and_run_cmdfile(node, sh, args, uname, rpwd, logfile, logger):
                             logger.error("Obtain model type from 'show chassis hardware clei-models'")
                     continue
                 #elif md.split(':')[0] == 'delay':
-                #    logger.info('Sleeping for {} seconds'.format(comd.strip().split(':')[1]))                     
+                #    logger.info('Sleeping for {} seconds'.format(comd.strip().split(':')[1]))
                 #    time.sleep(comd.strip().split(':')[1])
                 #    continue
                 else:
@@ -169,7 +169,7 @@ def parse_and_run_cmdfile(node, sh, args, uname, rpwd, logfile, logger):
                     else:
                         logger.error('Command mode (cli, shell or vty) not specified in command file')
                         sys.exit(1)
-                     
+
             #Execute the command list parsed from the cmdfile
             execute_cmd_list(node, sh, args.force, logfile, cmd_list, logger)
         except IOError as e:
@@ -185,12 +185,12 @@ def vc_check(node, vc, logger):
     if node.facts['model'] == 'Virtual Chassis':
         fpcs_hwinfo = FpcHwTable(node).get()
         vc_platform = [fpc.model.split('-')[0] for fpc in fpcs_hwinfo]
-        
+
         if vc_platform[0] not in ('QFX5100', 'EX4300'):
             logger.error('Only EX4300 and QFX5100 VC supported')
             return None, False
 
-        # Skip if mixed VC                
+        # Skip if mixed VC
         if len(set(vc_platform)) > 1:
             logger.error('Mixed VC not supported')
             return None, False
@@ -206,7 +206,7 @@ def select_cmd_set(node, vc, logger):
     if node.facts['personality'] in person_platform:
         cmd_set = node.facts['personality']
     elif node.facts['model'] == 'Virtual Chassis':
-        cmd_set = vc 
+        cmd_set = vc
     else:
         cmd_set = node.facts['model'].split('-')[0]
 #    if args.vxlan:
@@ -219,18 +219,18 @@ def select_cmd_set(node, vc, logger):
     elif node.facts['model'] == 'Virtual Chassis':
         fpcs_hwinfo = FpcHwTable(node).get()
         vc_platform = [fpc.model.split('-')[0] for fpc in fpcs_hwinfo]
-                        
-        # Skip if mixed VC                
+
+        # Skip if mixed VC
         if len(set(vc_platform)) > 1:
             logger.error('Logs from members not supported for mixed VC')
-            return 
+            return
         elif vc_platform[0].split('-')[0] in ('QFX5100', 'EX4300'):
             #Grab logs from backup members
             vc_mem = VcMemTable(node).get()
             master = 'fpc0'
-            
+
             for mem in vc_mem:
-                if mem.role: 
+                if mem.role:
                     cmd_set = fpc.model.split('-')[0]
                     break
         else:
@@ -239,10 +239,10 @@ def select_cmd_set(node, vc, logger):
         #for element in rsp.iter('name'):
         #    if element.text == 'FPC 0':
         #        for elem in element.getparent().getchildren():
-        #            if elem.tag == 'model-number': 
+        #            if elem.tag == 'model-number':
         #                cmd_set = elem.text.split('-')[0]
 """
-    
+
 def execute_cmd_list(node, sh, force, logfile, cmd_list, logger):
     #for QFX5100 and EX4300, append the following tp cmd_list for SFPs present
     #"""cprod -A fpc0 -c 'show sfp 1'""",
@@ -255,7 +255,7 @@ def execute_cmd_list(node, sh, force, logfile, cmd_list, logger):
         try:
             cmd = element.split('#')[0]
             real_pos = element.split('#')[1].split(':')[0]
-            pos = int(real_pos.translate(translation)) + 4 
+            pos = int(real_pos.translate(translation)) + 4
         except IndexError:
             run_cmd(node, sh, index, element, force, logfile, logger)
         except:
@@ -281,13 +281,13 @@ def execute_cmd_list(node, sh, force, logfile, cmd_list, logger):
                     for i in range(start, end, interval):
                        run_cmd(node, sh, index, cmd.split()[:pos-1] + ' ' + str(i) + ' ' + cmd.split()[pos:], force, logfile, logger)
                        index += 1
-                
+
 
 def collect_gcore(node, sh, fs, args, uname, rpwd, logger):
     logger.info('Collecting {} core....'.format(args.core))
     """
     # write coredump          // this is to take a live core-dump
-    """ 
+    """
     if args.core=='live':
         #Remove all exisiting live cores
         #TODO: Can accidentally delete useful kernel core
@@ -298,11 +298,11 @@ def collect_gcore(node, sh, fs, args, uname, rpwd, logger):
             rt = fs.stat('/var/tmp/vmcore.*')
 
         logger.debug('Dumping live core')
-        
-        # Dump the live core 
+
+        # Dump the live core
         sh.run("cli -c 'request system live-core'", timeout=999)
         tm = 0
-        
+
         # Loop until stat is successful for new vmcore file
         while fs.stat('/var/tmp/vmcore.*') is None:
             # Break from loop if core not available after 5 mins
@@ -316,48 +316,48 @@ def collect_gcore(node, sh, fs, args, uname, rpwd, logger):
         sh.run("mv /var/tmp/vmcore.* /var/tmp/data/")
     else:
         result = sh.run("ps -auxw | grep -w " + args.core.strip() + " | grep /sbin | awk '{print $2}' > /var/tmp/data/pids.log")
-        
+
         with exec_rpc_handle_errors("Read pid file for core", Exception, logger=logger):
             if fs.stat('/var/tmp/data/pids.log') is not None:
                 pids = fs.cat('/var/tmp/data/pids.log').splitlines()
-         
+
         if pids:
             # In case multiple pids returned
             for index, pd in enumerate(pids):
-                if pd:        
+                if pd:
                     filename = "/var/tmp/data/" + args.core.strip() + ".gcore." + str(index)
                     element = "gcore -c " + filename + ' ' + pd.strip()
                     sh.run(element, timeout=999)
-                        
+
                     # Gzip generated core file to save disk space
                     sh.run("gzip " + filename, timeout=120)
                     if fs.stat(filename):
                         fs.rm(filename)
-                    
+
                     logger.info("Core collection completed")
             fs.rm('/var/tmp/data/pids.log')
         else:
             logger.error("Process not running or invalid process")
 
 def archive_rsi_varlog(node, cmd_set, sh, fs, args, uname, rpwd, logger):
-    if not args.norsi and verify_load(node, logger, 1.5):       
+    if not args.norsi and verify_load(node, logger, 1.5):
         # Collect host logs for virtualized platforms
         if cmd_set in ('QFX5100','QFX10002','QFX10008','QFX10016'):
             try:
                 collect_host_logs(node, sh, logger)
             except:
                 logger.error("Could not retrieve host logs")
-        
+
         logger.info("Collecting RSI.....")
         sh.run("cli -c 'request support information | no-more | save /var/tmp/data/" + node.facts['hostname'] + \
                 '@' + datetime.datetime.now().strftime("%m-%d-%Y-%H-%M") + "_rsi.log'", timeout=600)
         logger.info("RSI Completed")
-  
+
         logger.info("Archiving /var/log.....")
         dest = '/var/tmp/data/' + node.facts['hostname'] + '_'+'varlog'+'@' + datetime.datetime.now().strftime("%m-%d-%Y-%H-%M")
         with exec_rpc_handle_errors("Archive /var/log", RpcError, PermissionError, sh=sh, source='/var/log', dest=dest, logger=logger):
             fs.tgz('/var/log', dest)
-         
+
         # For dual RE platforms, get varlog from backup as well
         if node.facts['2RE'] == True:
             fpcs_hwinfo = FpcHwTable(node).get()
@@ -367,43 +367,43 @@ def archive_rsi_varlog(node, cmd_set, sh, fs, args, uname, rpwd, logger):
                     pass
             elif node.facts['model'] == 'Virtual Chassis':
                 vc_platform = [fpc.model.split('-')[0] for fpc in fpcs_hwinfo]
-                
-                # Skip if mixed VC                
+
+                # Skip if mixed VC
                 if len(set(vc_platform)) > 1:
                     logger.error('Logs from members not supported for mixed VC')
                 elif vc_platform[0].split('-')[0] in ('QFX5100', 'EX4300'):
                     #Grab logs from backup members
-                    
+
                     vc_mem = VcMemTable(node).get()
                     master = 'fpc0'
-                    
+
                     for mem in vc_mem:
                         if mem.role and mem.role.rstrip('*').lower() == 'master':
                             master = mem.slot.lstrip('(').rstrip(')').lower().replace(" ", "")
-                            break 
+                            break
 
                     for mem in vc_mem:
                         if mem.role and mem.role.rstrip('*').lower() != 'master':
-                            sh.run("cli -c 'request session member " + mem.id + "'")                        
+                            sh.run("cli -c 'request session member " + mem.id + "'")
                             rfilename = mem.model + '_mem' + mem.id + '_' + \
                                 datetime.datetime.now().strftime("%m-%d-%Y-%H-%M") + "_rsi.log"
                             vfilename = mem.model + '_mem' + mem.id + '_' + \
                                 datetime.datetime.now().strftime("%m-%d-%Y-%H-%M") + "_varlog"
-                            
-                            logger.info("Collecting RSI from member {}.....".format(mem.id))                     
+
+                            logger.info("Collecting RSI from member {}.....".format(mem.id))
                             sh.run("cli -c 'request support information | no-more | save " + "/var/tmp/" + rfilename + "'", timeout=600)
                             logger.info("RSI Completed for member {}".format(mem.id))
-                            
+
                             logger.info("Archiving /var/log from {}.....".format(mem.id))
                             dest = master + ":/var/tmp/data/" + vfilename
                             with exec_rpc_handle_errors("Archive /var/log", RpcError, PermissionError, sh=sh, source='/var/log', dest=dest, logger=logger):
-                                fs.tgz('/var/log', dest) 
-                            
+                                fs.tgz('/var/log', dest)
+
                             logger.info("Moving RSI and var/log from backup to master RE")
                             #TODO: Convert to RPC and add error checking
                             sh.run("cli -c 'file copy " + "/var/tmp/" + rfilename + " " + master + ":/var/tmp/data'", timeout=300)
                             sh.run("cli -c 'file delete " + "/var/tmp/" + rfilename + "'")
-                            
+
                             sh.run("exit")
                             # Without change of permission, zipping of varlog fails
                             sh.run("chmod 755 /var/tmp/data/" + vfilename + ".tgz")
@@ -412,9 +412,9 @@ def archive_rsi_varlog(node, cmd_set, sh, fs, args, uname, rpwd, logger):
                 if ok:
                     rfilename = node.facts['hostname'] + '_' + datetime.datetime.now().strftime("%y-%m-%d-%H-%M") + "_bkup_rsi.log"
                     vfilename = node.facts['hostname'] + '_' + "varlog_bkup@" + datetime.datetime.now().strftime("%y-%m-%d-%H-%M")
-                    
-                    # TODO: Collect only if backup RE is up 
-                    logger.info("Collecting RSI from backup RE.....")                     
+
+                    # TODO: Collect only if backup RE is up
+                    logger.info("Collecting RSI from backup RE.....")
                     sh.run("cli -c 'request support information | no-more | save " + "/var/tmp/" + rfilename + "'", timeout=600)
                     logger.info("RSI from backup RE Completed")
 
@@ -423,18 +423,18 @@ def archive_rsi_varlog(node, cmd_set, sh, fs, args, uname, rpwd, logger):
                     sh.run("cli -c 'file archive compress source /var/log " + 'destination ' + dest + "'",timeout=600)
 
                     #with exec_rpc_handle_errors("Archive /var/log", RpcError, PermissionError, sh=sh, source='/var/log', dest=dest, logger=logger):
-                    #    fs.tgz('/var/log', dest) 
-                    
+                    #    fs.tgz('/var/log', dest)
+
                     logger.info("Moving RSI and var/log from backup to master RE")
                     sh.run("cli -c 'file copy " + "/var/tmp/" + rfilename + " " + node.facts['master'].lower() + ":/var/tmp/data'", timeout=300)
                     sh.run("cli -c 'file delete " + "/var/tmp/" + rfilename + "'")
-                    
+
                     sh.run("exit")
                     # Without change of permission, zipping of varlog fails
-                    sh.run("chmod 755 /var/tmp/data/" + vfilename + ".tgz")            
+                    sh.run("chmod 755 /var/tmp/data/" + vfilename + ".tgz")
                 else:
                     logger.error("Unable to connect to backup routing engine")
-        
+
             # For MX also include FPC syslog & nvram
             if node.facts['model'] != 'Virtual Chassis':
                 fpcs_info = FpcInfoTable(node).get()
@@ -459,7 +459,7 @@ def archive_rsi_varlog(node, cmd_set, sh, fs, args, uname, rpwd, logger):
 def zip_collected_data(node, sh, fs, ufname, logger):
     with exec_rpc_handle_errors("Zip Collected Data File", RpcError, PermissionError, sh=sh, source='/var/tmp/data', dest=ufname, logger=logger):
         fs.tgz(ufname, ufname)
-    
+
     with exec_rpc_handle_errors("Zip Collected Data", RpcError, PermissionError, sh=sh, source='/var/tmp/data', dest=ufname, logger=logger):
         fs.tgz('/var/tmp/data', ufname)
 
@@ -471,7 +471,7 @@ def scpprintTotals(filename, size, Transferred):
 
 def transfer_data_back_to_server(node, fs, ufname, logger):
     logger.info("Transferring {} back to server....".format(ufname.split('/')[3] + '.tgz'))
-    
+
     with SCP(node, progress=True) as scp:
         scp.get(remote_path= ufname + '.tgz', local_path='./', preserve_times=True)
 
@@ -480,7 +480,7 @@ def printTotals(transferred, toBeTransferred):
 
 def retrieve_and_upload_collected_data(node, sh, fs, log_dir, logger):
     ufname = '/var/tmp/' + node.facts['hostname'] + '_' + datetime.datetime.now().strftime("%m-%d-%Y-%H-%M")
-    
+
     try:
         retry(zip_collected_data, attempts=3, sleeptime=10, max_sleeptime=35, \
             sleepscale=1.1, jitter=0, retry_exceptions=(RpcTimeoutError,), args=(node, sh, fs, ufname, logger))
@@ -494,26 +494,36 @@ def retrieve_and_upload_collected_data(node, sh, fs, log_dir, logger):
         except Exception as err:
             logger.error('Unable to transfer data back from device after 3 attempts: {0}\n'.format(err))
         else:
-            logger.info("Done") #Completed file transfer back to server 
-             
+            logger.info("Done") #Completed file transfer back to server
+
             # Removing on device log files only if zip
             # file was successfully transferred back to server
+            logger.debug("Removing on device log files")
             if not fs.rmdir('/var/tmp/data'):
                 logger.info("Unable to delete /var/tmp/data on the device. ")
             if not fs.rm(ufname + '.tgz'):
                 logger.info("Unable to delete {}.tgz".format(ufname))
-             
+
             # Extract the files into per device folder and remove zip archive
             filename = ufname.split('/')[3] + '.tgz'
+            logger.debug("Filename is {}".format(filename))
             tout = tarfile.open(filename, 'r')
-            dfs=filename 
+
+            dfs=filename
+
+            logger.debug("Removing re[0-1] & -MAINT and lower case {}".format(filename))
             filename = re.sub('re[0-1][.-]',"",filename)
-            #filename=re.sub('-MAINT',"",filename)
-            #filename = filename.lower().strip()
+            filename=re.sub('-MAINT',"",filename)
+            filename = filename.lower().strip()
+
             dd = os.path.join(log_dir, filename.split('.')[0])
+            logger.debug("Createing directory {}".format(dd))
             os.mkdir(dd)
+
+            logger.debug("Untaring {}".format(filename))
             tout.extractall(path="./" + dd)
-            
+
+            logger.debug("Moving files from {}/var/tmp/data to ./{}".format(dd,dd))
             for item in os.listdir(os.path.join(dd, 'var/tmp/data')):
                 move(os.path.join(dd, 'var/tmp/data', item), "./"+dd)
 
@@ -540,15 +550,18 @@ def retrieve_and_upload_collected_data(node, sh, fs, log_dir, logger):
                 #    else:
                 #        logger.info("Files will be saved in the local file system as no Juniper case# specified")
                 logger.debug("Skipping uploading of collected logs as Juniper case# not provided")
-            
+
+            # Remove zip archive
             if not args.case:
-                # remove the /var/tmp/data 
+                # remove the /var/tmp/data
+                logger.debug("Deleting directory {}/var".format(dd))
                 rmtree(os.path.join(dd, 'var'))
+            logger.debug("Removing directory {}".format(dfs))
             os.remove(dfs)
     finally:
         node.close()
 
-# Assumption is that SSHException: Error reading SSH protocol banner is handled in 
+# Assumption is that SSHException: Error reading SSH protocol banner is handled in
 # the retry mechanism - underlying cause is congestion/lack of resources
 @retriable(attempts=3, sleeptime=5, max_sleeptime= 20, sleepscale=1.2, jitter=1, retry_exceptions=(ConnectTimeoutError, \
                                     ConnectRefusedError, ConnectClosedError))
@@ -565,12 +578,14 @@ def open_connection(node, logger):
         logger.error("Unable to reach device")
         raise ProbeError(node)
 
+@retriable(attempts=3, sleeptime=7, max_sleeptime= 20, sleepscale=1.2, jitter=1, retry_exceptions= \
+		(paramiko.ssh_exception.SSHException,paramiko.ssh_exception.NoValidConnectionsError,paramiko.ssh_exception.ChannelException))
 def upload_collected_files(args, dd, location='sftp.juniper.net', port=22):
     # Open sftp connection
     t = paramiko.Transport(location, port)
     t.connect(username = 'anonymous', password = 'anonymous')
     sftp = paramiko.SFTPClient.from_transport(t)
-    
+
     try:
         sftp.chdir('/pub/incoming/' + args.case)  # Test if remote_path exists
     except IOError:
@@ -589,14 +604,14 @@ def upload_collected_files(args, dd, location='sftp.juniper.net', port=22):
                     except:
                         logging.info("Unable to upload {}".format(item))
                     else:
-                        zipitem = item.split('.')[0]+'.tgz' 
+                        zipitem = item.split('.')[0]+'.tgz'
                         sftp.put(zipitem, './'+zipitem, confirm=True)
                         os.remove(zipitem)
                         continue
-                sftp.put(os.path.join(dd, item), './' + item, confirm=True)              
-                #sftp.put('var/tmp/data/' + item, './' + item, confirm=True, callback=printTotals)  
+                sftp.put(os.path.join(dd, item), './' + item, confirm=True)
+                #sftp.put('var/tmp/data/' + item, './' + item, confirm=True, callback=printTotals)
                 logging.info("{} upload completed".format(item))
-        
+
         rmtree(dd.split('/')[0])
         sftp.close()
 
@@ -611,12 +626,12 @@ def free_space_avail(node, mount, capacity, logger):
     else:
         logger.info("Unable to verify if disk space available in {}".format(mount))
         return True
-    
+
     if int(avail) < 0:
         return False
-     
+
     if int(avail) < int(total) * capacity/100:
-        return False 
+        return False
     return True
 
 def check_free_space(node, args, logger):
@@ -626,7 +641,7 @@ def check_free_space(node, args, logger):
         path = '/var'
     else:
         path = '/var/tmp'
-    #TODO: MX seems to have a different FS 15.1+    
+    #TODO: MX seems to have a different FS 15.1+
     if args.detail:
         cap = 40
     else:
@@ -651,21 +666,30 @@ def verify_load(node, logger, load = 2.0):
         logger.error("load-average-one above since the last 3 mins")
         return False
 
+# Assumption is that SSHException: Error reading SSH protocol banner is handled in
+# the retry mechanism - underlying cause is congestion/lack of resources
+@retriable(attempts=3, sleeptime=7, max_sleeptime= 20, sleepscale=1.2, jitter=1, retry_exceptions= \
+		(paramiko.ssh_exception.SSHException,paramiko.ssh_exception.NoValidConnectionsError,paramiko.ssh_exception.ChannelException))
 def run_cmd(node, sh, index, element, force, fn, logger):
     if not force:
-        # Check system load before each command        
+        # Check system load before each command
         if not verify_load(node, logger, 1.5):
             logger.error("Aborting due to high system load")
             sys.exit()
-     
+
     logger.info('{:d} {}'.format(index + 1, element))
 
-    got = sh.run_to_file(element, fname = fn, timeout=30) 
-        
+    try:
+        sh.run_to_file(element, fname = fn, timeout=30)
+    except Exception as e:
+        logger.error(e)
+
     #Pacing execution since overriding load check
     if force:
         time.sleep(1)
 
+@retriable(attempts=3, sleeptime=7, max_sleeptime= 20, sleepscale=1.2, jitter=1, retry_exceptions= \
+		(paramiko.ssh_exception.SSHException,paramiko.ssh_exception.NoValidConnectionsError,paramiko.ssh_exception.ChannelException))
 def become_root(sh,uname,rpwd,logger):
     if rpwd:
         #TODO: Verify check for root user
@@ -674,7 +698,7 @@ def become_root(sh,uname,rpwd,logger):
         else:
             sh.run("su", this=':')
             sh.run(rpwd)
-            
+
             if not sh.last_ok:
                 logger.error("Incorrect root password. Try again.")
                 sys.exit(1)
@@ -699,6 +723,8 @@ def collect_host_logs(node, sh, logger):
         sh.run("rm /var/log/" + hlog, this='#')
         sh.run("exit")
 
+@retriable(attempts=3, sleeptime=7, max_sleeptime= 20, sleepscale=1.2, jitter=1, retry_exceptions= \
+		(paramiko.ssh_exception.SSHException,paramiko.ssh_exception.NoValidConnectionsError,paramiko.ssh_exception.ChannelException))
 def record_banner(args, node, sh, uname, host, fname):
     sh.run('echo ############################ >> ' + fname)
     opt_dict = {k:v for k, v in vars(args).items() if v}
@@ -736,12 +762,12 @@ def get_hname(node):
         t = (('hname', node.facts['hostname']),)
     else:
         t = (('hname', node._hostname),)
-    
+
     return dict((x,y) for x,y in t)
 
 
 parser = argparse.ArgumentParser(prog='JCOLLECT', formatter_class=argparse.RawTextHelpFormatter, \
-        description=textwrap.dedent("""Juniper Data Collection Application 
+        description=textwrap.dedent("""Juniper Data Collection Application
 
 Example Usage:
 
@@ -752,27 +778,27 @@ Basic command set, RSI & Varlog plus detailed command set
 ./jcollect --host <ip address> --detail
 
 Basic and detailed command sets, RSI & Varlog and specified core
-./jcollect --host <ip address> --detail --core <proc> 
+./jcollect --host <ip address> --detail --core <proc>
 
 Basic command set without RSI & Varlog
 ./jcollect --host <ip address> --norsi
 
-Only RSI & Varlog 
+Only RSI & Varlog
 ./jcollect --host <ip address> --nocmd
 
 Only core collection
 ./jcollect --host <ip address> --core <proc> --norsi --nocmd
 
 --host can take multiple white space separated  addresses EX: <ip address> <ip address> ....
-Parallel implementation that runs the app across all specified devices simultaneously. 
-This is particularly beneficial in scenarios where the "problematic" device is undetermined such as 
+Parallel implementation that runs the app across all specified devices simultaneously.
+This is particularly beneficial in scenarios where the "problematic" device is undetermined such as
 multiple devices in a hub site or along affected data path.
 
 ./jcollect --ipfile <file path containing single IP/FQDN on each line>
 When data needs to be collected from a large number of devices.
 
 --case <xxxx-xxxx-xxxx>
-Juniper case# can be provided with any of the above options and if provided, all collected data is uploaded 
+Juniper case# can be provided with any of the above options and if provided, all collected data is uploaded
 to specified Juniper case via SFTP and is available to JTAC almost immediately
 
 ./jcollect --ipfile <ip file> --cmdfile <command on each line>
@@ -806,7 +832,7 @@ parser.add_argument('--onedir', action='store_true', default=False, help='Combin
 parser.add_argument('--onefile', action='store_true', default=False, help='Combines ONLY command output from multiple devices into a single file')
 
 parser.add_argument('--flush', action='store_true', default=False, help='Remove stale data collection files if they exist')
-parser.add_argument('--version', action='version', version='%(prog)s 1.0')
+parser.add_argument('--version', action='version', version='%(prog)s 1.1')
 
 parser.add_argument('--sm', action='store_true', default=False, help=argparse.SUPPRESS)
 parser.add_argument('--smtool', action='store_true', default=False, help=argparse.SUPPRESS)
@@ -844,22 +870,21 @@ class CustomAdapter(logging.LoggerAdapter):
     def process(self, msg, kwargs):
         return '[%s] %s' % (self.extra['hname'], msg), kwargs
 
-
-class ExceptionThread(Thread):  
+class ExceptionThread(Thread):
     """
-    Redirect exceptions of thread to an exception handler.  
-    """ 
-    def __init__(self, group=None, target=None, name=None, args=(), kwargs=None):  
+    Redirect exceptions of thread to an exception handler.
+    """
+    def __init__(self, group=None, target=None, name=None, args=(), kwargs=None):
         Thread.__init__(self, group, target, name, args, kwargs)
-        if kwargs is None:  
+        if kwargs is None:
             kwargs = {}
         self._target = target
-        self._args = args  
+        self._args = args
         self._kwargs = kwargs
-        self._exc = None  
+        self._exc = None
 
     def run(self):
-        try: 
+        try:
             if self._target:
                 self._target(*self._args, **self._kwargs)
         except BaseException as e:
@@ -867,13 +892,13 @@ class ExceptionThread(Thread):
         except:
             exc_type, exc_value, exc_traceback = sys.exc_info()
             print('{}'.format(repr(traceback.format_exception(exc_type, exc_value, exc_traceback))))
-            
-            #Avoid a refcycle if the thread is running a function with 
-            #an argument that has a member that points to the thread.
-            del self._target, self._args, self._kwargs  
 
-    def join(self):  
-        Thread.join(self)  
+            #Avoid a refcycle if the thread is running a function with
+            #an argument that has a member that points to the thread.
+            del self._target, self._args, self._kwargs
+
+    def join(self):
+        Thread.join(self)
         if self._exc:
             msg = "Thread '%s' threw an exception: %s" % (self.getName(), self._exc[1])
             new_exc = Exception(msg)
@@ -982,7 +1007,7 @@ class SSHTool():
             self.t0 = paramiko.Transport(via)
             self.t0.start_client()
             self.t0.auth_password(via_user, via_auth)
-            self.proxy = via      
+            self.proxy = via
 
     ## Connect to a device
     def connect_via(self, host, user, auth, withkey=True):
@@ -1004,7 +1029,7 @@ class SSHTool():
         else:
             self.transport.auth_password(user, auth) ##-----------------------Auth via password
 
-    ## This procedure runs single command on the router. No prechecks, no postchecks. 
+    ## This procedure runs single command on the router. No prechecks, no postchecks.
     ##Risky and unreliable. Use it for show commands only! For everything else use deploy_config()
     def run(self, cmd):
         ch = self.transport.open_session()
@@ -1021,4 +1046,3 @@ class SSHTool():
         if param==False:
             if self.proxy:
                 self.t0.transport.close()
-

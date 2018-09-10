@@ -1,7 +1,7 @@
 ############################################################################################
 #Copyright 2017 Juniper Networks, Inc. All rights reserved.
-#Licensed under the Juniper Networks Script Software License (the "License"). 
-#You may not use this script file except in compliance with the License, which is located at 
+#Licensed under the Juniper Networks Script Software License (the "License").
+#You may not use this script file except in compliance with the License, which is located at
 #http://www.juniper.net/support/legal/scriptlicense/
 #Unless required by applicable law or otherwise agreed to in writing by the parties,
 #software distributed under the License is distributed on an "AS IS" BASIS,
@@ -10,7 +10,7 @@
 
 #!/usr/bin/python
 # Author: akbhat@juniper.net
-# Version 1.0  20170803 
+# Version 1.0  20170803
 
 from jutil3 import *
 
@@ -34,9 +34,9 @@ l_dir=None
 
 def smtools_output(node):
     node = Device (host = node.strip(), user = user.strip(), passwd = passwd.strip(), normalize=True, port=22)
-    
+
     logger = logging.LoggerAdapter(logging.getLogger("jcollect"), get_hname(node))
-    
+
     faillock,swlock,hwlock=locks
 
     try:
@@ -49,13 +49,13 @@ def smtools_output(node):
         if not node.connected:
             update_device_failed(node, faillock, fail_handle)
             return
-    
+
     logger = logging.LoggerAdapter(logging.getLogger("jcollect"), get_hname(node))
-    
+
     try:
         if not node.facts['hostname']:
             raise NameError
-         
+
         #if not args.sm:
         if args.format=='xml':
             hw_op=node.rpc.get_chassis_inventory()
@@ -73,7 +73,7 @@ def smtools_output(node):
             if not os.path.isfile(args.cmdfile):
                 logger.error('Unable to find cmdfile: {}'.format(args.cmdfile))
                 sys.exit(1)
-            
+
             with open(args.cmdfile, 'r') as cmdfile, StartShell(node) as sh:
                 logger.debug("Reading command file for execution")
                 for index, comd in enumerate(cmdfile):
@@ -125,9 +125,9 @@ def run_cmds(dev):
         node = Device(host=dev.strip(), user = uname.strip(), passwd = pwd.strip(), mode='telnet', port=args.console)
     else:
         node = Device (host = dev.strip(), user = uname.strip(), passwd = pwd.strip(), normalize=True, port=22)
-    
+
     logger = logging.LoggerAdapter(logging.getLogger("jcollect"), get_hname(node))
-    
+
     #ssht = SSHTool(via=jumpbox, via_user=user_jumpbox, via_auth=passwd_jumpbox)
     #ssht.connect_via(router, user_router, str(passwd_router), withkey=False)
 
@@ -139,7 +139,7 @@ def run_cmds(dev):
         else:
             open_connection(node, logger)
             node.timeout = 120
-    except Exception as err:                               
+    except Exception as err:
         logger.error('Cannot connect to device: {0}\n'.format(err))
     finally:
         if not node.connected:
@@ -147,36 +147,36 @@ def run_cmds(dev):
             return
 
     logger = logging.LoggerAdapter(logging.getLogger("jcollect"), get_hname(node))
-    
+
     #Global VC variable
-    vc = '' 
-     
+    vc = ''
+
     #Return if VC checks fail
     vc, status = vc_check(node, vc, logger)
     if not status:
         return
-    
+
     with StartShell(node) as sh:
         if args.nocmd and args.norsi and not args.core:
             pass
         else:
-            #Exit if not enough disk space on filesystem for data collection 
+            #Exit if not enough disk space on filesystem for data collection
             if not check_free_space(node, args, logger):
                 sys.exit(1)
-        
+
         #Flush all stale data collection
         if args.flush:
             sh.run("rm -rf /var/tmp/data")
-         
+
         # Handle for file system operations
         fs = FS(node)
-        cmd_set = select_cmd_set(node, vc, logger) 
+        cmd_set = select_cmd_set(node, vc, logger)
         logger.debug("Command set selected is {}".format(cmd_set))
-        
+
         sh.run("mkdir -p /var/tmp/data")
-        
+
         become_root(sh, uname, rpwd, logger)
-        
+
         # Find specified file and retrieve
         if args.file:
             got = sh.run("find /var -iname '{}'".format(args.file))
@@ -187,10 +187,10 @@ def run_cmds(dev):
                 logger.error("Unable to find {}".format(args.file))
 
         if not args.nocmd:
-            logfile = "/var/tmp/data/"+node.facts['hostname']+'_'+"data_collection@" + datetime.datetime.now().strftime("%y-%m-%d-%H-%M") + ".log" 
-            
+            logfile = "/var/tmp/data/"+node.facts['hostname']+'_'+"data_collection@" + datetime.datetime.now().strftime("%y-%m-%d-%H-%M") + ".log"
+
             record_banner(args, node, sh, uname, node.facts['hostname'], logfile)
-            
+
             if args.cmdfile:
                 parse_and_run_cmdfile(node, sh, args, uname, rpwd, logfile, logger)
             else:
@@ -206,28 +206,28 @@ def run_cmds(dev):
                     logger.info('######################################################')
 
                     execute_cmd_list(node, sh, args.force, logfile, cmd_set_shell_D[cmd_set], logger)
-        
+
         # Archive RSI & /var/log
         archive_rsi_varlog(node, cmd_set, sh, fs, args, uname, rpwd, logger)
 
-        # Collect requested core     
+        # Collect requested core
         if args.core and verify_load(node, 0.75):
             if not free_space_avail(node, '/var/tmp', 40, logger):
-                logger.error("Skipping gcore as less than 40% available in /var/tmp")                
+                logger.error("Skipping gcore as less than 40% available in /var/tmp")
             else:
                 collect_gcore(node, sh, fs, args, uname, rpwd, logger)
         else:
             logger.debug("Skipping gcore")
-         
-        # Zip, retrieve and upload collected data 
+
+        # Zip, retrieve and upload collected data
         retrieve_and_upload_collected_data(node, sh, fs, l_dir, logger)
 
 def acr_init(sw_writer,hw_writer,lks,swfh,hwfh,failfh,compile_re,uname,pwd,r_hash):
     global fail_wr, sw_wr, hw_wr
     global locks, comp_re, user, passwd, region_hash
-    global fail_handle, sw_handle, hw_handle 
+    global fail_handle, sw_handle, hw_handle
     sw_wr,hw_wr = sw_writer,hw_writer
-    locks=lks 
+    locks=lks
     sw_handle=swfh
     hw_handle=hwfh
     fail_handle=failfh
@@ -247,12 +247,12 @@ def collect_init(flock,failfh,user,passwd,rpasswd,log_dir):
     l_dir=log_dir
 
 def sm_init(lks,swfh,hwfh,failfh,uname,pwd):
-    global fail_wr, sw_wr 
+    global fail_wr, sw_wr
     global locks, user, passwd
     global fail_handle, sw_handle, hw_handle
     locks=lks
     sw_handle=swfh
-    hw_handle=hwfh 
+    hw_handle=hwfh
     fail_handle=failfh
     user=uname
     passwd=pwd
@@ -260,7 +260,7 @@ def sm_init(lks,swfh,hwfh,failfh,uname,pwd):
 def update_acr_sw_inventory(devObj, region_hash, logger):
     swrow = {}
     hn=re.sub('re[0-1][.-]',"",devObj.facts['hostname'])
-    
+
     for i in range(5):
         if hn:
             hn=re.sub('-MAINT',"",hn)
@@ -279,7 +279,7 @@ def update_acr_sw_inventory(devObj, region_hash, logger):
         return swrow, False
 
     logger.debug("Looking up hostname {}".format(hn))
-    
+
     try:
         swrow['Region']=region_hash[hn][0]
         swrow['Area']=region_hash[hn][1]
@@ -291,14 +291,14 @@ def update_acr_sw_inventory(devObj, region_hash, logger):
     return swrow, True
 
 def create_acr_output_files(log_dir):
-    #Write out SW and HW data to separate CSV files 
+    #Write out SW and HW data to separate CSV files
     swfname = log_dir + "/software.csv"
     hwfname = log_dir + "/hardware.csv"
-     
+
     #with open(swfname, 'w+') as swfh, open(hwfname, 'w+') as hwfh:
     swfh = open(swfname, 'w+')
     hwfh = open(hwfname, 'w+')
-    
+
     sw_header = 'Device_Name,ipaddr,Platform,Version,Region,Area'.split(',')
     hw_header = 'device,ipaddr,chassis_name,fpc,pic,xcvr,name,version,part_num,serial_num,model_num,description'.split(',')
 
@@ -314,7 +314,7 @@ def create_acr_output_files(log_dir):
     for n in sw_header:
         sw_header_dict[n] = n
     sw_writer.writerow(sw_header_dict)
-    swfh.flush() 
+    swfh.flush()
     return sw_writer, swfh, hw_writer, hwfh
 
 def update_device_failed(devObj, faillock, fail_writer):
@@ -337,11 +337,11 @@ def getAcrDeviceData(device):
     '''
     swrow={}
     devObj = Device (host = device, user = user.strip(), passwd = passwd.strip(), port=22, normalize=True)
-     
+
     logger = logging.LoggerAdapter(logging.getLogger("jcollect"), get_hname(devObj))
-     
+
     faillock,swlock,hwlock=locks
-     
+
     try:
         open_connection(devObj, logger)
     except Exception as err:
@@ -352,15 +352,15 @@ def getAcrDeviceData(device):
             return False
 
     logger = logging.LoggerAdapter(logging.getLogger("jcollect"), get_hname(devObj))
-     
+
     # Retrieve SW inventory
     swrow, status = update_acr_sw_inventory(devObj, region_hash, logger)
     swrow['ipaddr']=device
     if not status:
-        update_device_failed(devObj,faillock,fail_writer) 
+        update_device_failed(devObj,faillock,fail_writer)
         return False
-    
-    # Retrieve HW inventory 
+
+    # Retrieve HW inventory
     try:
         rpc = "<get-chassis-inventory></get-chassis-inventory>"
         result = devObj.execute(rpc)
@@ -370,7 +370,7 @@ def getAcrDeviceData(device):
         return False
     else:
         logger.debug("Successfully retrieved get-chassis-inventory")
-    
+
     #Hostname cleanup
     hn=re.sub('re[0-1][.-]',"",devObj.facts['hostname'])
     for i in range(5):
@@ -381,7 +381,7 @@ def getAcrDeviceData(device):
             devObj.facts_refresh(keys='hostname')
             hn=re.sub('re[0-1][.-]',"",devObj.facts['hostname'])
             continue
-    
+
     rows = []
     def generateRow(tree):
         row = { 'model-number': '', \
@@ -402,7 +402,7 @@ def getAcrDeviceData(device):
             if match is not None:
                 row[key] = match.text
         return row
-    
+
     fpc_re,pic_re,xvr_re=comp_re
     for chassis in result.xpath('//chassis'):
         row = generateRow(chassis)
@@ -444,7 +444,7 @@ def getAcrDeviceData(device):
                         row['pic'] = pic
                         row['xcvr'] = xcvr
                     rows.append(row)
-    
+
     convertKeys = {'model-number'  : 'model_num',
                    'serial-number' : 'serial_num',
                    'part-number'   : 'part_num'}
@@ -454,7 +454,7 @@ def getAcrDeviceData(device):
             if deviceKey in list(row.keys()):
                 row[acrKey] = row[deviceKey]
                 del(row[deviceKey])
-    
+
     #Write SW and HW invetory together to avoid duplicates
     swlock.acquire()
     logger.debug("Writing {}".format(swrow))
@@ -466,9 +466,9 @@ def getAcrDeviceData(device):
     hw_wr.writerows(rows)
     hw_handle.flush()
     hwlock.release()
-     
+
     devObj.close()
-    
+
     logger.info("Completed")
 
     return True
@@ -493,7 +493,7 @@ def task_done(future):
 def main():
     logging.getLogger("paramiko").setLevel(logging.WARNING)
     logging.getLogger("ncclient").setLevel(logging.WARNING)
-    
+
     logger = logging.getLogger("jcollect")
     logger.propagate = False
     ch = logging.StreamHandler()
@@ -507,16 +507,16 @@ def main():
     else:
         logging.basicConfig(format='[%(asctime)s %(levelname)s] %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.INFO)
         ch.setLevel(logging.INFO)
-        #Supress traceback    
+        #Supress traceback
         #sys.tracebacklimit = 0
-    
+
     formatter = logging.Formatter('[%(asctime)s %(levelname)s %(hname)s] %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
     ch.setFormatter(formatter)
     logger.addHandler(ch)
-    
+
     # Add syslog handler
     #sh = logging.SysLogHandler(address=(‘localhost’, SYSLOG_UDP_PORT), facility=LOG_USER, socktype=socket.SOCK_DGRAM)
-    
+
     logging.debug({k:v for k, v in vars(args).items() if v})
 
     if args.nocmd and args.norsi and not args.core:
@@ -524,13 +524,13 @@ def main():
             parser.error("No action requested")
         else:
             pass #find and fetch file
-    
+
     if args.onefile or args.onedir:
         logging.info("Ignoring all other data collection options except commands")
         args.norsi = True
         args.core = None
         args.file = False
-    
+
     # Parse specified devices and remove duplicates
     if args.ipfile != sys.stdin:
         devices = [d.strip() for d in args.ipfile if d.strip()]
@@ -543,10 +543,10 @@ def main():
         pwd=args.pd
         rpwd=args.rpd
     else:
-        uname = input("Username: ") 
+        uname = input("Username: ")
         pwd = getpass.getpass()
         rpwd = getpass.getpass(prompt="Root Password:")
-    
+
     if not rpwd:
         logging.info("**** Root password not provided. Commands requiring root access will be unsuccessful ****")
 
@@ -556,17 +556,17 @@ def main():
     elif args.smtool:
         log_dir = "smtool_dump@" + datetime.datetime.now().strftime("%m-%d-%Y-%H-%M")
     else:
-        log_dir = "data_collection@" + datetime.datetime.now().strftime("%m-%d-%Y-%H-%M") 
-     
+        log_dir = "data_collection@" + datetime.datetime.now().strftime("%m-%d-%Y-%H-%M")
+
     #TODO: Handle failure to create dir
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-    
+
     #Lock and writer for unreachable devices
     faillock = Lock()
     failfname = log_dir + "/unreachable.csv"
     failfh = open(failfname, 'w+')
-    
+
     future=None
     if args.acr or args.smtool:
         if not args.ipfile:
@@ -575,7 +575,7 @@ def main():
             swlock = Lock()
             hwlock = Lock()
             lks=(faillock,swlock,hwlock)
-            
+
             if args.acr:
                 region_hash={}
                 sw_writer, swfh, hw_writer, hwfh = create_acr_output_files(log_dir)
@@ -584,7 +584,7 @@ def main():
                 pic_re=re.compile(r'^PIC (\d*)$')
                 xvr_re=re.compile(r'^Xcvr (\d*)$')
                 compile_re=(fpc_re,pic_re,xvr_re)
-                 
+
                 try:
                     with open('lookup.csv') as f:
                         try:
@@ -598,7 +598,7 @@ def main():
                 else:
                     with ProcessPool(max_workers=args.workers, initializer=acr_init, \
                             initargs=(sw_writer,hw_writer,lks,swfh,hwfh,failfh,compile_re,uname,pwd,r_hash)) as p:
-                        
+
                         future = p.map(getAcrDeviceData, devices, timeout=120)
                         #future.add_done_callback(task_done)
             elif args.smtool:
@@ -613,10 +613,10 @@ def main():
         with ProcessPool(max_workers=args.workers, initializer=collect_init, \
                            initargs=(faillock,failfh,uname,pwd,rpwd,log_dir)) as p:
             future = p.map(run_cmds, devices, timeout=900)
-    
+
     # Main iterator
     iterator = future.result()
-    index = 0 
+    index = 0
     while True:
         try:
             result = next(iterator)
@@ -635,22 +635,24 @@ def main():
             update_device_failed(devices[index],faillock,failfh)
         finally:
             index += 1
-    
-    failfh.close()  
+
+    failfh.close()
     if args.smtool:
         swfh.close()
         if args.acr:
             hwfh.close()
-    
+
     # To combine output to onedir or further to onefile
+    logging.debug("Combining collected files to one directory {}".format(log_dir))
     if args.onedir or args.onefile:
         for root, dirs, files in os.walk(log_dir, topdown=True):
             for filename in fnmatch.filter(files, '*data*.log'):
                 move(os.path.join(root, filename), log_dir)
                 rmtree(root)
-         
-        outfilename = log_dir + "/combined_data_" + datetime.datetime.now().strftime("%m-%d-%Y-%H-%M") + ".log" 
+
+        outfilename = log_dir + "/combined_data_" + datetime.datetime.now().strftime("%m-%d-%Y-%H-%M") + ".log"
         if args.onefile:
+            logging.debug("Combining collected files to one output file")
             with open(outfilename, 'w') as outfile:
                 for item in os.listdir(log_dir):
                     if item == outfilename.split('/')[1].strip() or item == 'unreachable.csv':
@@ -659,14 +661,14 @@ def main():
                     with open(os.path.join(log_dir,item), 'r') as readfile:
                         copyfileobj(readfile, outfile)
                     os.remove(os.path.join(log_dir,item))
-    
-    # To upload all collected files to specified case 
+
+    # To upload all collected files to specified case
     if args.case:
         paramiko_SSH_exceptions=(paramiko.ssh_exception.SSHException,paramiko.ssh_exception.NoValidConnectionsError,paramiko.ssh_exception.ChannelException)
 
         retry(upload_collected_files, attempts=3, sleeptime=10, max_sleeptime=50, \
                      sleepscale=1.5, jitter=0, retry_exceptions=(paramiko_SSH_exceptions), args=(args, log_dir))
-        
+
 if __name__ == "__main__":
     #cProfile.run('main()')
     main()

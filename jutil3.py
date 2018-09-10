@@ -102,7 +102,7 @@ def parse_and_run_cmdfile(node, sh, args, uname, rpwd, logfile, logger):
     if not os.path.isfile(args.cmdfile.strip()):
         logger.error('Unable to find cmdfile: {}'.format(args.cmdfile))
         sys.exit(1)
-
+    
     with open(args.cmdfile, 'r') as cmdfile:
         try:
             cmd_type = ''
@@ -162,7 +162,7 @@ def parse_and_run_cmdfile(node, sh, args, uname, rpwd, logfile, logger):
                         #if comd has " they need to be escaped \
                         for fpc in fpcs:
                             if cmd_type == 'vty':
-                                cmd_list.append("cli -c 'request pfe execute command " + comd.strip().split("#")[0] + " target fpc" + str(fpc)""""'""")
+                                cmd_list.append("cli -c 'request pfe execute command " + '"' + comd.strip().split("#")[0] + '"' + " target fpc" + str(fpc) + "'")
                             else:
                                 cmd_list.append("rsh -Ji fpc" + str(fpc) + " " + comd.strip().split("#")[0])
                             continue
@@ -652,6 +652,9 @@ def check_free_space(node, args, logger):
         return False
     return True
 
+# Run before each command to check load average so good retry candidate
+@retriable(attempts=3, sleeptime=7, max_sleeptime= 20, sleepscale=1.2, jitter=1, retry_exceptions= \
+                (paramiko.ssh_exception.SSHException,paramiko.ssh_exception.NoValidConnectionsError,paramiko.ssh_exception.ChannelException))
 def verify_load(node, logger, load = 2.0):
     for i in range (12):
         rsp = node.rpc.get_route_engine_information()
